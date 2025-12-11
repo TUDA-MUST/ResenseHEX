@@ -1,4 +1,4 @@
-<img src="docs/tud_logo.gif" align="right" width="140"/>
+<img src="docs/tuda_logo.png" align="right" width="150"/>
 
 # Resense-HEX Arduino Library
 [![Badge_must](https://img.shields.io/badge/Made_by-MUST-blue)](https://www.etit.tu-darmstadt.de/must/home_must/index.en.jsp)
