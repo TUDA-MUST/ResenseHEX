@@ -45,10 +45,10 @@
 #include <cstring>
 
 /**
- * @struct ResenseFrame
+ * @struct HexFrame
  * @brief Data structure holding one complete measurement frame from HEX
  */
-struct ResenseFrame {
+struct HexFrame {
   float fx;                 ///< Force in X direction (N or raw)
   float fy;                 ///< Force in Y direction (N or raw)
   float fz;                 ///< Force in Z direction (N or raw)
@@ -81,34 +81,31 @@ public:
    * and validates one complete frame. Combines softwareTrigger() + readFrame()
    * into single atomic operation with built-in timeout.
    *
-   * @param[out] frame ResenseFrame struct to populate with validated data
+   * @param[out] frame HexFrame struct to populate with validated data
    * @return true if trigger sent and valid frame received, false on timeout/invalid
    */
-  bool meas(ResenseFrame &frame);
+  bool triggerAndRead(HexFrame &frame);
 
   /**
-   * @brief Attempt to read one complete frame from the sensor and converts it to a ResenseFrame struct
+   * @brief Attempt to read one complete frame from the sensor and converts it to a HexFrame struct
    * 
    * This function accumulates bytes from the serial stream and returns true
    * when a complete 28-byte frame has been received and decoded.
    * 
-   * @param[out] frame Reference to ResenseFrame struct to populate
+   * @param[out] frame Reference to HexFrame struct to populate
    * @return true if a complete frame was successfully read, false otherwise
    */
-  bool readFrame(ResenseFrame &frame);
+  bool readFrame(HexFrame &frame);
 
   /**
-   * @brief Read one raw 28-byte frame into a user buffer
-   *
-   * This function fills the internal buffer from the serial stream and, when
-   * at least FRAME_SIZE bytes are available, copies them verbatim into the
-   * provided buffer (no decoding or validation).
-   *
-   * @param[out] frameData User-provided buffer of size >= FRAME_SIZE
-   * @return true if 28 bytes were copied into frameData, false otherwise
+   * @brief Attempt to read one complete frame from the sensor and converts it to a HexFrame struct with timestamp
+   * 
+   * same as read Frame but additionally timestamps the HexFrame
+   * 
+   * @param[out] frame Reference to HexFrame struct to populate
+   * @return true if a complete frame was successfully read, false otherwise
    */
-  bool readRawFrame(uint8_t *frameData);
-
+  bool readFrameAndTimestamp(HexFrame &frame);
 
   /**
  * @brief Send pre-compiled software trigger over UART
@@ -185,18 +182,17 @@ public:
   uint16_t getSoftwareTriggerTimeout() const;
 
   /**
-   * @brief Perform basic sanity checks on decoded float values
+   * @brief checks HexFrame against user set limits
    * 
    * @param frame The frame to validate
    * @return true if all values appear reasonable
    */
-  bool validateFrame(const ResenseFrame &frame) const;
+  bool validateLimits(const HexFrame &frame) const;
 
 private:
-  static constexpr size_t FRAME_SIZE = 28;              //< HEX frame size
+  static constexpr size_t FRAME_DATA_SIZE = 28;              //< HEX frameData size
   static constexpr size_t MIN_TARE_READS = 1000;        //< min number of softwaretrigger reads have to be accomplished before system is tared
   static constexpr size_t MAX_TARE_TIMEOUT_MS = 10000;  //< max time tare is allowed to block
-
 
   static constexpr const char *SOFTWARE_TRIGGER_CMD = "SAMPLE\r\n";  //< ASCII for software trigger
   static constexpr const char *TARE_CMD = "TARA\r\n";                //< ASCII for TARA/taring
@@ -219,7 +215,7 @@ private:
    * @param frame The frame to validate
    * @return true if all values appear reasonable
    */
-  bool _validateFrameData(const ResenseFrame &frame) const;
+  bool _validateFrameCorruption(const HexFrame &frame) const;
 
   /**
    * @brief Flush all pending bytes from the UART receive buffer
@@ -228,6 +224,29 @@ private:
    * Stream so the next frame starts cleanly at a byte boundary.
    */
   void _flushInput();
+
+  /**
+   * @brief gets the current timestamp
+   *
+   */
+  unsigned long _getTime();
+
+  /**
+   * @brief Read one raw 28-byte frame into a user buffer
+   *
+   * This function fills the internal buffer from the serial stream and, when
+   * at least FRAME_DATA_SIZE bytes are available, copies them verbatim into the
+   * provided buffer (no decoding or validation).
+   *
+   * @param[out] frameData User-provided buffer of size >= FRAME_DATA_SIZE
+   * @return true if 28 bytes were copied into frameData, false otherwise
+   */
+  bool _readFrameData(uint8_t *frameData);
+
+  /**
+ * @brief copies frameData into a HexFrame and checks for corruption
+ */
+  bool _copyFrameDataToHexFrame(uint8_t *frameData, HexFrame &frame);
 };
 
 #endif

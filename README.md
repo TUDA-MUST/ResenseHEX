@@ -6,7 +6,6 @@
 
 A clean, MCU-agnostic Arduino library for communicating with a **Resense HEX** 6-axis Force/Torque Sensor over UART. It is:
 - **MCU Agnostic**: Works with ESP32, ESP32-S3, Arduino Uno/Mega, and any board with `HardwareSerial` / `SofwareSerial` or `Stream` support
-- **High Speed**: Full 2 Mbaud UART communication
 - **Easy to Use**: Simple `readFrame()` API
 - **Well Documented**: Full Doxygen comments, comprehensive examples
 
@@ -65,7 +64,7 @@ Flow:       None
 
 HardwareSerial SensorSerial(1); // UART Hardware interface 1 // consider SoftwareSerial if none left
 ResenseHEX hex(SensorSerial); // create ResenseHEX object by passing a Serial Interface dereived from Stream
-ResenseFrame frame; // struct data will be saved to
+HexFrame frame; // struct data will be saved to
 
 void setup() {
   Serial.begin(115200);	// PC Serial Interface
@@ -73,8 +72,7 @@ void setup() {
 }
 
 void loop() {
-if (hex.meas(frame)) {
-    if (hex.validateFrame(frame)) {
+	if (hex.triggerAndRead(frame)) {
 		Serial.println(frame.fx);  // Force X
 		Serial.println(frame.fy);  // Force Y
 		Serial.println(frame.fz);  // Force Z
@@ -83,12 +81,10 @@ if (hex.meas(frame)) {
 		Serial.println(frame.mz);  // Torque Z
 		Serial.println(frame.temperature);  / Temperature in °C
 		Serial.println(frame.timestamp);  // Timestamp in ms
-    } else {
-      Serial.print("Exceeds user thresholds -> tare? ");
-      hex.tareBlocking();
-    }
-  } else {
-    Serial.println("Timeout or corrupted frame");
+	} else {
+		Serial.println("Timeout or corrupted frame");
+	}
+	delay(100);
 }
 ```
 
