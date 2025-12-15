@@ -155,7 +155,7 @@ public:
    * 
    * @param timeoutMs Timeout in milliseconds
    */
-  void setSoftwareTriggerTimeout(uint16_t timeoutMs);
+  void setReadTimeout(uint16_t timeoutMs);
 
   /**
    * @brief Get current force validation threshold
@@ -179,7 +179,7 @@ public:
    * @brief Get current software trigger timeout
    * @return Timeout in milliseconds
    */
-  uint16_t getSoftwareTriggerTimeout() const;
+  uint16_t getReadTimeout() const;
 
   /**
    * @brief checks HexFrame against user set limits
@@ -192,12 +192,11 @@ public:
 private:
   static constexpr size_t FRAME_DATA_SIZE = 28;              //< HEX frameData size
   static constexpr size_t MIN_TARE_READS = 1000;        //< min number of softwaretrigger reads have to be accomplished before system is tared
-  static constexpr size_t MAX_TARE_TIMEOUT_MS = 10000;  //< max time tare is allowed to block
 
   static constexpr const char *SOFTWARE_TRIGGER_CMD = "SAMPLE\r\n";  //< ASCII for software trigger
   static constexpr const char *TARE_CMD = "TARA\r\n";                //< ASCII for TARA/taring
 
-  // precalculate lengths at compile time
+  // precalculate command lengths at compile time
   static constexpr size_t SOFTWARE_TRIGGER_LEN = strlen(SOFTWARE_TRIGGER_CMD);
   static constexpr size_t TARE_LEN = strlen(TARE_CMD);
 
@@ -205,7 +204,8 @@ private:
   static float _forceMax;
   static float _torqueMax;
   static float _tempMax;
-  static uint16_t _softwareTriggerTimeoutMs;  //< Default timeout ms
+  static uint16_t _readTimeoutMs;  //< Default timeout ms
+  static uint16_t _tareTimeoutMs;  ///< Current tare timeout in ms
 
   Stream &_serial;  //< Reference to serial stream
 
@@ -231,6 +231,16 @@ private:
    */
   unsigned long _getTime();
 
+    /**
+   * @brief Set tare timeout in milliseconds
+   */
+  void setTareTimeout(uint16_t timeoutMs);
+
+  /**
+   * @brief Get current tare timeout in milliseconds
+   */
+  uint16_t getTareTimeout() const;
+
   /**
    * @brief Read one raw 28-byte frame into a user buffer
    *
@@ -246,7 +256,7 @@ private:
   /**
  * @brief copies frameData into a HexFrame and checks for corruption
  */
-  bool _copyFrameDataToHexFrame(uint8_t *frameData, HexFrame &frame);
+  bool _copyFrameDataToHexFrame(HexFrame &frame, uint8_t *frameData);
 };
 
 #endif

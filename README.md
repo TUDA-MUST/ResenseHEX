@@ -6,7 +6,7 @@
 
 A clean, MCU-agnostic Arduino library for communicating with a **Resense HEX** 6-axis Force/Torque Sensor over UART. It is:
 - **MCU Agnostic**: Works with ESP32, ESP32-S3, Arduino Uno/Mega, and any board with `HardwareSerial` / `SofwareSerial` or `Stream` support
-- **Easy to Use**: Simple `readFrame()` API
+- **Easy to Use**: Simple `readFrame()` and `triggerAndRead()` API
 - **Well Documented**: Full Doxygen comments, comprehensive examples
 
 Please note that this is an unofficial library and that we are not affiliated with the Resense company!
@@ -27,9 +27,7 @@ If your MCU is **5V-based** (Arduino Uno, Mega), use a level shifter:
 - **Option 1**: TTL logic level converter
 - **Option 2**: Voltage divider on HEX TX line (RX to MCU)
 
-The 3.3V input (RX) can sometimes tolerate 5V directly due to input clamping, but level shifting is recommended to prevent damage.
-
-**Before you start don't forget to move the slide switch from USB to UART!** 
+**Before you continue don't forget to [move the slide switch from USB to UART](#settings)!**
 
 ### UART Configuration
 ```
@@ -39,10 +37,11 @@ Parity:     None
 Stop Bits:  1
 Flow:       None
 ```
+_This library already pre-defines the relevant UART settings, see [Minimal Example](#minimal-example) for more._
 
 ## Installation
 
-### Method 1: Arduino IDE Library Manager (when published)
+### Method 1: Arduino IDE Library Manager
 1. Sketch → Include Library → Manage Libraries
 2. Search: "ResenseHEX"
 3. Install
@@ -55,45 +54,74 @@ Flow:       None
 3. Restart Arduino IDE
 
 ## Quick Start
+There are essentially three different modes the Resense sensors can operate under:
+1. **Continuous-Mode** (meaning a set frequency) -> _only pre-defined sample rates_
+2. Trigger-Mode
+	- **Software-Trigger** (triggered by sending a command over UART) -> _only single measurements_
+	- **Hardware-Trigger** (triggered by a falling edge on Pin 4 / Trigger) -> _this requires the use of a 5 pin micro usb cable/connector_
+
+For Continuous-Mode and Hardware-Trigger-Mode ideally use the functions `readFrame` and `readFrameAndTimestamp` (the former requires you to set the timestamp yourself).
+For Software-Trigger-Mode use `triggerAndRead`.
+
+This library uses `HexFrame` structs to pass data. They consist of the following
+```
+struct HexFrame {
+  float fx;                 ///< Force in X direction (N or raw)
+  float fy;                 ///< Force in Y direction (N or raw)
+  float fz;                 ///< Force in Z direction (N or raw)
+  float mx;                 ///< Torque around X axis (mNm or raw)
+  float my;                 ///< Torque around Y axis (mNm or raw)
+  float mz;                 ///< Torque around Z axis (mNm or raw)
+  float temperature;        ///< Sensor temperature (°C)
+  unsigned long timestamp;}  ///< timestamp of measurement (millis)
+```
 
 ### Minimal Example
 
-```cpp
+_Don't forget to set the electronics to UART mode before use, see [Settings](#settings) for more._
+
+
+```
 #include <HardwareSerial.h>
 #include <ResenseHEX.h>
 
-HardwareSerial SensorSerial(1); // UART Hardware interface 1 // consider SoftwareSerial if none left
-ResenseHEX hex(SensorSerial); // create ResenseHEX object by passing a Serial Interface dereived from Stream
+HardwareSerial HexSerial(1); // UART Hardware interface 1 // consider SoftwareSerial if none left
+ResenseHEX hex(HexSerial); // create ResenseHEX object by passing a Serial Interface derived from Stream
 HexFrame frame; // struct data will be saved to
 
 void setup() {
-  Serial.begin(115200);	// PC Serial Interface
-  SensorSerial.begin(ResenseHEX::DEFAULT_BAUD, ResenseHEX::DEFAULT_CONFIG, RX_PIN, TX_PIN); // HEX Serial Interface
+  // PC Serial Interface
+  Serial.begin(115200);	
+  
+  // HEX Serial Interface
+  HexSerial.begin(ResenseHEX::DEFAULT_BAUD, ResenseHEX::DEFAULT_CONFIG, RX_PIN, TX_PIN); 
+  
+  while (!Serial && !HexSerial) delay(10); Serial.println("Serial connected.");
+  
+  // block until taring is completed (may fail outside Software-Trigger-Mode)
+  if(hex.tareBlocking()) {Serial.println("Taring successful."); 
+  } else {Serial.println("Taring failed!"); }
 }
 
 void loop() {
-	if (hex.triggerAndRead(frame)) {
-		Serial.println(frame.fx);  // Force X
-		Serial.println(frame.fy);  // Force Y
-		Serial.println(frame.fz);  // Force Z
-		Serial.println(frame.mx);  // Torque X
-		Serial.println(frame.my);  // Torque Y
-		Serial.println(frame.mz);  // Torque Z
-		Serial.println(frame.temperature);  / Temperature in °C
-		Serial.println(frame.timestamp);  // Timestamp in ms
-	} else {
-		Serial.println("Timeout or corrupted frame");
-	}
-	delay(100);
+  // trigger measurement and read HexFrame // ! only works in Triggermode, for continuous consider "readFrameAndTimestamp"
+  if (hex.triggerAndRead(frame)) { 
+    // check if HexFrame violates set Limits
+    if (hex.validateLimits(frame)) {  // successful -> print out data
+      Serial.printf("Fx=%.2fN Fy=%.2fN Fz=%.2fN Mx=%.2fmNm My=%.2fmNm Mz=%.2fmNm Temp=%.2f°C @ %lu ms\n",
+      frame.fx, frame.fy, frame.fz, frame.mx, frame.my, frame.mz, frame.temperature, frame.timestamp);
+    } else {
+      Serial.print("Exceeds thresholds -> tare?");
+    }
+  } else { 
+    Serial.println("Timeout or corrupted frame");
+  }
+  delay(100);  // Trigger every 100ms
 }
 ```
+_Look into the examples folder for comprehensive examples!_
 
-### Details
-There are essentially three different modes the Resense sensors can operate under:
-1. **Continuous-Mode** (meaning a set frequency) _only pre-defined sample rates_
-2. Trigger-Mode
-	- **Software-Trigger** (triggered by sending a command over UART) _only single measurements_
-	- **Hardware-Trigger** (triggered by a falling edge on Pin 4 / Trigger) _this requires the use of a 5 pin micro usb cable/connector_
+### Settings
 
 <img src="docs/eval_box.png" align="center" width="500"/>
 

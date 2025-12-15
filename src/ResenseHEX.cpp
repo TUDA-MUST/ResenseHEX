@@ -9,7 +9,8 @@
 float ResenseHEX::_forceMax = 5000.0f;
 float ResenseHEX::_torqueMax = 10.0f;
 float ResenseHEX::_tempMax = 150.0f;
-uint16_t ResenseHEX::_softwareTriggerTimeoutMs = 300;
+uint16_t ResenseHEX::_readTimeoutMs = 300;
+uint16_t ResenseHEX::_tareTimeoutMs = 20000;
 
 // Constructor - initialize with a serial stream reference
 ResenseHEX::ResenseHEX(Stream &serial)
@@ -30,7 +31,7 @@ bool ResenseHEX::readFrame(HexFrame &frame) {
   uint8_t frameData[FRAME_DATA_SIZE];
   if (!_readFrameData(frameData)) return false;
 
-  if (!_copyFrameDataToHexFrame(frameData, frame)) return false;
+  if (!_copyFrameDataToHexFrame(frame, frameData)) return false;
 
   return true;
 }
@@ -42,7 +43,7 @@ bool ResenseHEX::readFrameAndTimestamp(HexFrame &frame) {
   if (!_readFrameData(frameData)) return false;  // in case of timeout or partial frameData
   frame.timestamp = _getTime();
 
-  if (!_copyFrameDataToHexFrame(frameData, frame)) return false;  // in case of corruption
+  if (!_copyFrameDataToHexFrame(frame, frameData)) return false;  // in case of corruption
 
   return true;
 }
@@ -52,7 +53,7 @@ bool ResenseHEX::_readFrameData(uint8_t *frameData) {
   uint8_t idx = 0;
   unsigned long start = _getTime();
 
-  while (idx < FRAME_DATA_SIZE && (_getTime() - start) < _softwareTriggerTimeoutMs) {
+  while (idx < FRAME_DATA_SIZE && (_getTime() - start) < _readTimeoutMs) {
     if (_serial.available()) {
       frameData[idx++] = _serial.read();
     }
@@ -63,7 +64,7 @@ bool ResenseHEX::_readFrameData(uint8_t *frameData) {
 }
 
 // Copies frameData into a HexFrame and checks for corruption
-bool ResenseHEX::_copyFrameDataToHexFrame(uint8_t *frameData, HexFrame &frame) {
+bool ResenseHEX::_copyFrameDataToHexFrame(HexFrame &frame, uint8_t *frameData) {
   memcpy(&frame.fx, &frameData[0], 4);
   memcpy(&frame.fy, &frameData[4], 4);
   memcpy(&frame.fz, &frameData[8], 4);
@@ -132,8 +133,12 @@ bool ResenseHEX::tareBlocking() {
   int nrReads = 0;
 
   // cycle through Frame reads until MIN_TARE_READS is reached or timeout
-  while (nrReads < MIN_TARE_READS && (_getTime() - start) < MAX_TARE_TIMEOUT_MS) {
+  while (nrReads < MIN_TARE_READS) {
+    if ((_getTime() - start) >= _tareTimeoutMs) {
+      return false; // timeout exceeded
+    }
     softwareTrigger();
+    delay(10);
     if (_readFrameData(frameData)) {  // read to clear buffer
       nrReads++;
     } else {
@@ -166,9 +171,14 @@ void ResenseHEX::setMaxTemperature(float tempMax) {
   _tempMax = tempMax;
 }
 
-// Set trigger timeout
-void ResenseHEX::setSoftwareTriggerTimeout(uint16_t timeoutMs) {
-  _softwareTriggerTimeoutMs = timeoutMs;
+// Set trigger timeout in milliseconds
+void ResenseHEX::setReadTimeout(uint16_t timeoutMs) {
+  _readTimeoutMs = timeoutMs;
+}
+
+// set timeout for taring
+void ResenseHEX::setTareTimeout(uint16_t timeoutMs) {
+  _tareTimeoutMs = timeoutMs;
 }
 
 // Get force threshold
@@ -187,11 +197,16 @@ float ResenseHEX::getMaxTemperature() const {
 }
 
 // Get trigger timeout
-uint16_t ResenseHEX::getSoftwareTriggerTimeout() const {
-  return _softwareTriggerTimeoutMs;
+uint16_t ResenseHEX::getReadTimeout() const {
+  return _readTimeoutMs;
 }
 
 // Get current time in ms
 unsigned long ResenseHEX::_getTime() {
   return millis();
+}
+
+// get timeout for taring
+uint16_t ResenseHEX::getTareTimeout() const {
+  return _tareTimeoutMs;
 }

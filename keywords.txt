@@ -4,37 +4,38 @@
 
 #######################################
 # Datatypes (KEYWORD1)
-#######################################
-
-SensirionUartSps30	KEYWORD1
+ResenseHEX	KEYWORD1
 
 #######################################
 # Methods and Functions (KEYWORD2)
-#######################################
 
-wakeUpSequence	KEYWORD2
-startMeasurement	KEYWORD2
-stopMeasurement	KEYWORD2
-readMeasurementValuesUint16	KEYWORD2
-readMeasurementValuesFloat	KEYWORD2
-sleep	KEYWORD2
-wakeUpCommunication	KEYWORD2
-wakeUp	KEYWORD2
-startFanCleaning	KEYWORD2
-readAutoCleaningInterval	KEYWORD2
-writeAutoCleaningInterval	KEYWORD2
-readProductType	KEYWORD2
-readSerialNumber	KEYWORD2
-readVersion	KEYWORD2
-readDeviceStatusRegister	KEYWORD2
-deviceReset	KEYWORD2
+triggerAndRead	KEYWORD2
+readFrame	KEYWORD2
+readFrameAndTimestamp	KEYWORD2
+softwareTrigger	KEYWORD2
+tare	KEYWORD2
+tareBlocking	KEYWORD2
+sendCommand	KEYWORD2
+validateLimits	KEYWORD2
+setMaxForce	KEYWORD2
+setMaxTorque	KEYWORD2
+setMaxTemperature	KEYWORD2
+setReadTimeout	KEYWORD2
+setTareTimeout	KEYWORD2
+getMaxForce	KEYWORD2
+getMaxTorque	KEYWORD2
+getMaxTemperature	KEYWORD2
+getReadTimeout	KEYWORD2
+getTareTimeout	KEYWORD2
 
 #######################################
 # Instances (KEYWORD2)
-#######################################
 
-sensor	KEYWORD2
+# Structures (KEYWORD3)
+HexFrame	KEYWORD3
 
 #######################################
 # Constants (LITERAL1)
-#######################################
+
+DEFAULT_BAUD	LITERAL1
+DEFAULT_CONFIG	LITERAL1
