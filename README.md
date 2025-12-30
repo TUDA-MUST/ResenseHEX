@@ -1,6 +1,6 @@
 <img src="docs/tuda_logo.png" align="right" width="150"/>
 
-# Resense HEX Arduino Library
+# Arduino Library for the Resense HEX sensors
 [![Badge_must](https://img.shields.io/badge/Made_by-MUST-blue)](https://www.etit.tu-darmstadt.de/must/home_must/index.en.jsp)
 [![Badge](https://img.shields.io/badge/Built%20w%2F-Arduino-blue)](https://www.arduino.cc/)
 
