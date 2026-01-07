@@ -30,7 +30,7 @@ If your MCU is **5V-based** (Arduino Uno, Mega), use a level shifter:
 **Before you continue don't forget to [move the slide switch from USB to UART](#settings)!**
 
 ### UART Configuration
-```
+```cpp
 Baud Rate:  2,000,000 bit/s
 Data Bits:  8
 Parity:     None
@@ -64,7 +64,7 @@ For Continuous-Mode and Hardware-Trigger-Mode ideally use the functions `readFra
 For Software-Trigger-Mode use `triggerAndRead`.
 
 This library uses `HexFrame` structs to pass data. They consist of the following
-```
+```cpp
 struct HexFrame {
   float fx;                 ///< Force in X direction (N or raw)
   float fy;                 ///< Force in Y direction (N or raw)
@@ -81,7 +81,7 @@ struct HexFrame {
 _Don't forget to set the electronics to UART mode before use, see [Settings](#settings) for more._
 
 
-```
+```cpp
 #include <HardwareSerial.h>
 #include <ResenseHEX.h>
 
