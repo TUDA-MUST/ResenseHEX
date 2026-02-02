@@ -7,8 +7,8 @@
  * with any Arduino-compatible board (ESP32, ESP32-S3, Arduino, STM32, etc.)
  * as long as the target provides HardwareSerial compatibility.
  * 
- * @author Your Name
- * @version 1.1.0
+ * @author Mark Suppelt
+ * @version 1.0.1
  * @date 2025-12-09
  * 
  * Connection (HEX32 UART pin header):
