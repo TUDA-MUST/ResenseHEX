@@ -2,8 +2,8 @@
  * ResenseHEX32 Example - Software Trigger Mode
  */
 #include <ResenseHEX.h>
-const int RX_PIN = 17;  // your chosen RX pin
-const int TX_PIN = 18;  // your chosen TX pin
+const int RX_PIN = 44;  // your chosen RX pin
+const int TX_PIN = 43;  // your chosen TX pin
 
 HardwareSerial HexSerial(2);  // e.g. ESP32 UART2 // Consider also SoftwareSerial
 ResenseHEX hex(HexSerial);  // pass interface to object

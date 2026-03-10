@@ -59,6 +59,7 @@ There are essentially three different modes the Resense sensors can operate unde
 2. Trigger-Mode
 	- **Software-Trigger** (triggered by sending a command over UART) -> _only single measurements_
 	- **Hardware-Trigger** (triggered by a falling edge on Pin 4 / Trigger) -> _this requires the use of a 5 pin micro usb cable/connector_
+  > Warning: Software Trigger seems to produce wrong readouts above a sample rate of 125Hz
 
 For Continuous-Mode and Hardware-Trigger-Mode ideally use the functions `readFrame` and `readFrameAndTimestamp` (the former requires you to set the timestamp yourself).
 For Software-Trigger-Mode use `triggerAndRead`.
