@@ -8,8 +8,8 @@
  * as long as the target provides HardwareSerial compatibility.
  * 
  * @author Mark Suppelt
- * @version 1.0.1
- * @date 2025-12-09
+ * @version 1.0.2
+ * @date 2026-07-06
  * 
  * Connection (HEX32 UART pin header):
  *   Pin 1: VDD (5V) 
@@ -43,6 +43,8 @@
 #include <Arduino.h>
 #include <Stream.h>  // Explicit (sometimes needed on some platforms)
 #include <cstring>
+
+#define CMD_EOL "\r\n"  ///< UART line ending appended to every command
 
 /**
  * @struct HexFrame
@@ -88,10 +90,16 @@ public:
 
   /**
    * @brief Attempt to read one complete frame from the sensor and converts it to a HexFrame struct
-   * 
+   *
    * This function accumulates bytes from the serial stream and returns true
    * when a complete 28-byte frame has been received and decoded.
-   * 
+   *
+   * @warning This function does not flush the UART buffer before reading. If a
+   *   partial or stale frame is sitting in the buffer (e.g. from a missed trigger
+   *   or continuous-mode overshoot), the 28 bytes read may span two different
+   *   measurements, producing silently corrupted data. Use triggerAndRead() instead,
+   *   which handles flushing automatically.
+   *
    * @param[out] frame Reference to HexFrame struct to populate
    * @return true if a complete frame was successfully read, false otherwise
    */
@@ -99,22 +107,23 @@ public:
 
   /**
    * @brief Attempt to read one complete frame from the sensor and converts it to a HexFrame struct with timestamp
-   * 
-   * same as read Frame but additionally timestamps the HexFrame
-   * 
+   *
+   * Same as readFrame() but additionally timestamps the HexFrame. Subject to the
+   * same frame-misalignment risk — see readFrame() warning.
+   *
    * @param[out] frame Reference to HexFrame struct to populate
    * @return true if a complete frame was successfully read, false otherwise
    */
   bool readFrameAndTimestamp(HexFrame &frame);
 
   /**
- * @brief Send pre-compiled software trigger over UART
- */
+   * @brief Send pre-compiled software trigger over UART
+   */
   void softwareTrigger();
 
   /**
- * @brief Send pre-compiled tare command over UART
- */
+   * @brief Send pre-compiled tare command over UART
+   */
   void tare();
 
   /**
@@ -125,8 +134,8 @@ public:
   bool tareBlocking();
 
   /**
-  * @brief Send command over UART dynamically
-  */
+   * @brief Send command over UART dynamically
+   */
   void sendCommand(const char *cmd);
 
   /**
@@ -189,25 +198,94 @@ public:
    */
   bool validateLimits(const HexFrame &frame) const;
 
-private:
-  static constexpr size_t FRAME_DATA_SIZE = 28;              //< HEX frameData size
-  static constexpr size_t MIN_TARE_READS = 1000;        //< min number of softwaretrigger reads have to be accomplished before system is tared
+  // Sensor operating modes — used with setSensorMode()
+  enum class SensorMode : uint8_t {
+    CONTINUOUS_100HZ = 0,  ///< Continuous output at 100 Hz
+    CONTINUOUS_500HZ = 1,  ///< Continuous output at 500 Hz
+    CONTINUOUS_1KHZ  = 2,  ///< Continuous output at 1 kHz
+    TRIGGER          = 3,  ///< Hardware trigger
+    SOFTWARE_TRIGGER = 4,  ///< Software trigger via SAMPLE command
+  };
 
-  static constexpr const char *SOFTWARE_TRIGGER_CMD = "SAMPLE\r\n";  //< ASCII for software trigger
-  static constexpr const char *TARE_CMD = "TARA\r\n";                //< ASCII for TARA/taring
+  /**
+   * @brief Enable or disable config mode (no sensor data while active)
+   * @param enable true = config mode on, false = off
+   */
+  void setConfigMode(bool enable);
+
+  /**
+   * @brief Enable or disable calibration matrix and SI unit conversion
+   * @param enable true = on, false = off (raw ADC values)
+   */
+  void setMatrixCalc(bool enable);
+
+  /**
+   * @brief Switch sensor operating mode
+   * @param mode One of the SensorMode enum values
+   */
+  void setSensorMode(SensorMode mode);
+
+  /**
+   * @brief Enable or disable moving average filter
+   * @param enable true = on, false = off
+   */
+  void setMovingAverageFilter(bool enable);
+
+  /**
+   * @brief Set and save the electronics ID
+   * @warning UNTESTED — use with caution
+   * @param id Integer ID to store
+   */
+  void setElectronicsId(uint32_t id);
+
+  /**
+   * @brief Set and save the sensor ID
+   * @warning UNTESTED — use with caution
+   * @param id Integer ID to store
+   */
+  void setSensorId(uint32_t id);
+
+  /**
+   * @brief Set one entry of the 6x6 calibration matrix
+   *
+   * The sensor expects an integer with a scaling factor of 10^16 applied.
+   * For example, a calibration coefficient of 0.0001 should be passed as
+   * scaledValue = 1000000000000 (1e12).
+   *
+   * @warning UNTESTED — use with caution
+   * @param index Matrix entry index, 0–35
+   * @param scaledValue Integer value (pre-scaled by 10^16)
+   */
+  void setMatrixEntry(uint8_t index, int64_t scaledValue);
+
+  // UART command strings — pass to sendCommand() or use convenience methods
+  static constexpr const char *CMD_SAMPLE             = "SAMPLE"              CMD_EOL;  ///< Software trigger (mode 4): request one measurement
+  static constexpr const char *CMD_TARE               = "TARA"                CMD_EOL;  ///< Tare / zero the sensor
+  static constexpr const char *CMD_BOOT               = "BOOT"                CMD_EOL;  ///< Enter bootloader mode
+  // GET commands
+  static constexpr const char *CMD_GET_MATRIX         = "GET MATRIX"          CMD_EOL;  ///< Print calibration matrix values
+  static constexpr const char *CMD_GET_CONFIG         = "GET CONFIG"          CMD_EOL;  ///< Print all saved config values
+  static constexpr const char *CMD_GET_SENSOR_ID      = "GET SENSOR_ID"       CMD_EOL;  ///< Print saved sensor ID
+  static constexpr const char *CMD_GET_ELECTRONICS_ID = "GET ELECTRONICS_ID"  CMD_EOL;  ///< Print saved electronics ID
+  static constexpr const char *CMD_GET_SW_VERSION     = "GET SOFTWARE_VERSION" CMD_EOL; ///< Print firmware version
+  static constexpr const char *CMD_GET_DIAGNOSTICS    = "GET DIAGNOSTICS"     CMD_EOL;  ///< Gather diagnostics to virtual USB drive
+
+private:
+  static constexpr size_t FRAME_DATA_SIZE = 28;
+  static constexpr int    MIN_TARE_READS  = 1000;
 
   // precalculate command lengths at compile time
-  static constexpr size_t SOFTWARE_TRIGGER_LEN = strlen(SOFTWARE_TRIGGER_CMD);
-  static constexpr size_t TARE_LEN = strlen(TARE_CMD);
+  static constexpr size_t SOFTWARE_TRIGGER_LEN = strlen(CMD_SAMPLE);
+  static constexpr size_t TARE_LEN             = strlen(CMD_TARE);
 
-  // Limits for validation purposes (absolute)
-  static float _forceMax;
-  static float _torqueMax;
-  static float _tempMax;
-  static uint16_t _readTimeoutMs;  //< Default timeout ms
-  static uint16_t _tareTimeoutMs;  ///< Current tare timeout in ms
+  // Per-instance limits and timeouts
+  float    _forceMax      = 5000.0f;
+  float    _torqueMax     = 10.0f;
+  float    _tempMax       = 150.0f;
+  uint16_t _readTimeoutMs = 300;
+  uint16_t _tareTimeoutMs = 20000;
 
-  Stream &_serial;  //< Reference to serial stream
+  Stream &_serial;
 
   /**
    * @brief Perform basic sanity checks on float values WITHOUT considering user set limits
@@ -231,15 +309,15 @@ private:
    */
   unsigned long _getTime();
 
-    /**
+  /**
    * @brief Set tare timeout in milliseconds
    */
-  void setTareTimeout(uint16_t timeoutMs);
+  void _setTareTimeout(uint16_t timeoutMs);
 
   /**
    * @brief Get current tare timeout in milliseconds
    */
-  uint16_t getTareTimeout() const;
+  uint16_t _getTareTimeout() const;
 
   /**
    * @brief Read one raw 28-byte frame into a user buffer

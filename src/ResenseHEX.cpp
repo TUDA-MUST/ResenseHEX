@@ -5,14 +5,6 @@
 
 #include "ResenseHEX.h"
 
-// Define static member variables
-float ResenseHEX::_forceMax = 5000.0f;
-float ResenseHEX::_torqueMax = 10.0f;
-float ResenseHEX::_tempMax = 150.0f;
-uint16_t ResenseHEX::_readTimeoutMs = 300;
-uint16_t ResenseHEX::_tareTimeoutMs = 20000;
-
-// Constructor - initialize with a serial stream reference
 ResenseHEX::ResenseHEX(Stream &serial)
   : _serial(serial) {}
 
@@ -94,7 +86,7 @@ bool ResenseHEX::_validateFrameCorruption(const HexFrame &frame) const {
 
 // Compares Frame values with set user limits
 bool ResenseHEX::validateLimits(const HexFrame &frame) const {
-  // Check for NaN or extreme values
+  // Check for extreme values
   if (fabsf(frame.fx) > _forceMax) return false;
   if (fabsf(frame.fy) > _forceMax) return false;
   if (fabsf(frame.fz) > _forceMax) return false;
@@ -115,13 +107,13 @@ void ResenseHEX::_flushInput() {
 
 // Send pre-compiled software trigger over UART
 void ResenseHEX::softwareTrigger() {
-  _serial.write(SOFTWARE_TRIGGER_CMD, SOFTWARE_TRIGGER_LEN);
+  _serial.write(CMD_SAMPLE, SOFTWARE_TRIGGER_LEN);
   _serial.flush();  // Ensure it's sent immediately
 }
 
 // Send pre-compiled tare command over UART
 void ResenseHEX::tare() {
-  _serial.write(TARE_CMD, TARE_LEN);
+  _serial.write(CMD_TARE, TARE_LEN);
   _serial.flush();  // Ensure it's sent immediately
 }
 
@@ -148,12 +140,52 @@ bool ResenseHEX::tareBlocking() {
   return true;
 }
 
-/**
- * @brief Send command over UART dynamically
- */
+// Send command over UART dynamically
 void ResenseHEX::sendCommand(const char *cmd) {
   _serial.write(cmd, strlen(cmd));
   _serial.flush();  // Ensure it's sent immediately
+}
+
+void ResenseHEX::setConfigMode(bool enable) {
+  char cmd[24];
+  snprintf(cmd, sizeof(cmd), "SET CONFIG_MODE %d" CMD_EOL, enable ? 1 : 0);
+  sendCommand(cmd);
+}
+
+void ResenseHEX::setMatrixCalc(bool enable) {
+  char cmd[24];
+  snprintf(cmd, sizeof(cmd), "SET MATRIX_CALC %d" CMD_EOL, enable ? 1 : 0);
+  sendCommand(cmd);
+}
+
+void ResenseHEX::setSensorMode(SensorMode mode) {
+  char cmd[16];
+  snprintf(cmd, sizeof(cmd), "SET MODE %d" CMD_EOL, static_cast<uint8_t>(mode));
+  sendCommand(cmd);
+}
+
+void ResenseHEX::setMovingAverageFilter(bool enable) {
+  char cmd[20];
+  snprintf(cmd, sizeof(cmd), "SET FILTER %d" CMD_EOL, enable ? 1 : 0);
+  sendCommand(cmd);
+}
+
+void ResenseHEX::setElectronicsId(uint32_t id) {
+  char cmd[36];
+  snprintf(cmd, sizeof(cmd), "SET ELECTRONICS_ID %lu" CMD_EOL, (unsigned long)id);
+  sendCommand(cmd);
+}
+
+void ResenseHEX::setSensorId(uint32_t id) {
+  char cmd[32];
+  snprintf(cmd, sizeof(cmd), "SET SENSOR_ID %lu" CMD_EOL, (unsigned long)id);
+  sendCommand(cmd);
+}
+
+void ResenseHEX::setMatrixEntry(uint8_t index, int64_t scaledValue) {
+  char cmd[48];
+  snprintf(cmd, sizeof(cmd), "SET MATRIX %d %lld" CMD_EOL, index, (long long)scaledValue);
+  sendCommand(cmd);
 }
 
 // Set force threshold
@@ -177,7 +209,7 @@ void ResenseHEX::setReadTimeout(uint16_t timeoutMs) {
 }
 
 // set timeout for taring
-void ResenseHEX::setTareTimeout(uint16_t timeoutMs) {
+void ResenseHEX::_setTareTimeout(uint16_t timeoutMs) {
   _tareTimeoutMs = timeoutMs;
 }
 
@@ -207,6 +239,6 @@ unsigned long ResenseHEX::_getTime() {
 }
 
 // get timeout for taring
-uint16_t ResenseHEX::getTareTimeout() const {
+uint16_t ResenseHEX::_getTareTimeout() const {
   return _tareTimeoutMs;
 }
